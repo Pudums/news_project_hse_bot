@@ -1,6 +1,12 @@
 import logging
 
-from parser import get_topics, get_href
+from parser import (
+    get_topics, 
+    get_href, 
+    get_themes, 
+    get_name,
+    get_tag,
+)
 from config import TG_TOKEN
 
 from telegram import (
@@ -29,9 +35,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-MAIN, GET, EXIT = range(3)
+MAIN, GET, TYPE = range(3)
 # Callback data
-CMAIN, CGET, smth1, CEXIT = range(4)
+CMAIN, CGET, CGETBUTTON, CPOPULAR, CYOUR = range(5)
 #dict of tops with links
 
 def start(update: Update, context: CallbackContext) -> int: 
@@ -40,35 +46,45 @@ def start(update: Update, context: CallbackContext) -> int:
 
     keyboard = [
         [
-            InlineKeyboardButton("theme", callback_data=str(CGET)),
+            InlineKeyboardButton("Popular themes", callback_data=str(CPOPULAR)),
         ],
 
         [
-            InlineKeyboardButton("exit", callback_data=str(CEXIT)),
+            InlineKeyboardButton("Your themes", callback_data=str(CYOUR)),
         ],
+
+        #[
+            #InlineKeyboardButton("exit", callback_data=str(CEXIT)),
+        #],
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("Start handler, Choose a route", reply_markup=reply_markup)
 
-    return MAIN
+    return TYPE
 
 def start_over(update: Update, context: CallbackContext) -> int:
-    user = update.message.from_user
+    query = update.callback_query
+    user = update.callback_query.from_user
+    query.answer()
     logger.info("User %s started_over the conversation.", user.first_name)
 
     keyboard = [
         [
-            InlineKeyboardButton("theme", callback_data=str(CGET)),
+            InlineKeyboardButton("Popular themes", callback_data=str(CPOPULAR)),
         ],
 
         [
-            InlineKeyboardButton("exit", callback_data=str(CEXIT)),
+            InlineKeyboardButton("Your themes", callback_data=str(CYOUR)),
         ],
+
+        #[
+            #InlineKeyboardButton("exit", callback_data=str(CEXIT)),
+        #],
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Start handler, Choose a route", reply_markup=reply_markup)
+    query.edit_message_text("Hi, choose one.", reply_markup=reply_markup)
 
     return MAIN
 
@@ -82,25 +98,102 @@ def get(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [["1", "2", "3"]]
 
     tops = get_topics(text)
-    text = "choose one of this topics:\n1)" + get_href(tops[0]) + "\n2)" + get_href(tops[1]) + "\n3)" + get_href(tops[2])
+    text = "choose one of this topics:\n1)" + \
+    get_href(tops[0]) + "\n2)" + get_href(tops[1]) + "\n3)" + get_href(tops[2])
 
+
+    logger.info("text = %s", text)
+
+    keyboard = [
+        [
+            InlineKeyboardButton("back", callback_data=str(CGET)),
+        ],
+
+        #[
+            #InlineKeyboardButton("exit", callback_data=str(CEXIT)),
+        #],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(text,
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, input_field_placeholder='Number of topic?',
-            parse_mode=ParseMode.HTML
-        ),
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
     )
 
     return MAIN
 
-def pre_get(update: Update, context: CallbackContext) -> int:
+def pre_get_popular(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     user = update.callback_query.from_user
     query.answer()
 
-    logger.info("User %s in pre_get func", user.first_name)
+    logger.info("User %s in pre_get_popular func", user.first_name)
 
-    query.edit_message_text(text="Enter theme pls:")
+    #reply_keyboard = [["self", "relationships", "data-science"]]
+    #reply_keyboard = [["s", "r", "d"]]
+    themes = get_themes()
+    keyboard = []
+    for i in range(3):
+        keyboard.append([
+                InlineKeyboardButton(get_name(themes[i]), callback_data=str(get_tag(themes[i]))),
+            ])
+
+    keyboard.append(
+        [
+            InlineKeyboardButton("back", callback_data=str(CMAIN)),
+        ],
+    )
+
+#    update.message.reply_text(
+#        reply_markup=ReplyKeyboardMarkup(
+#            reply_keyboard, 
+#            one_time_keyboard=True, 
+#            input_field_placeholder='Number of topic?',
+#        ),
+#   )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    print("before edit")
+    query.edit_message_text(text="Enter theme pls:",
+        reply_markup=reply_markup
+    )
+
+    return GET
+
+def pre_get_your(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    user = update.callback_query.from_user
+    query.answer()
+
+    logger.info("User %s in pre_get_your func", user.first_name)
+
+    #reply_keyboard = [["self", "relationships", "data-science"]]
+    #reply_keyboard = [["s", "r", "d"]]
+    keyboard = [
+        [
+            InlineKeyboardButton("self", callback_data=str("self")),
+        ],
+
+        [
+            InlineKeyboardButton("programming", callback_data="programming"),
+        ],
+
+        [
+            InlineKeyboardButton("back", callback_data=str(CMAIN)),
+        ],
+    ]
+
+#    update.message.reply_text(
+#        reply_markup=ReplyKeyboardMarkup(
+#            reply_keyboard, 
+#            one_time_keyboard=True, 
+#            input_field_placeholder='Number of topic?',
+#        ),
+#   )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text(text="Enter theme pls:",
+        reply_markup=reply_markup
+    )
+
     return GET
 
 def exit_(update: Update, context: CallbackContext) -> int:
@@ -112,6 +205,42 @@ def exit_(update: Update, context: CallbackContext) -> int:
 
     return MAIN
 
+def themes_buttons(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    user = update.callback_query.from_user
+    query.answer()
+
+    logger.info("User %s in themes_buttons func", user.first_name)
+
+def show_tops(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    user = update.callback_query.from_user
+    query.answer()
+
+    logger.info("User %s in tops func, data is %s", user.first_name, query.data)
+
+    tops = get_topics(query.data)
+    text = "choose one of this topics:\n1)" + \
+    get_href(tops[0]) + "\n2)" + get_href(tops[1]) + "\n3)" + get_href(tops[2])
+
+    keyboard = [
+        [
+            InlineKeyboardButton("back", callback_data=str(CPOPULAR)),
+        ],
+
+        #[
+            #InlineKeyboardButton("exit", callback_data=str(CEXIT)),
+        #],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text(text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=reply_markup,
+    )
+
+    return TYPE
+
 
 def main():
     updater = Updater(TG_TOKEN)
@@ -122,16 +251,21 @@ def main():
             states={
                 MAIN: [
                         CallbackQueryHandler(start_over, pattern='^' + str(CMAIN) + '$'),
-                        CallbackQueryHandler(pre_get, pattern='^' + str(CGET) + '$'),
-                        CallbackQueryHandler(exit_, pattern='^' + str(CEXIT) + '$'),
+                        #CallbackQueryHandler(exit_, pattern='^' + str(CEXIT) + '$'),
                     ],
                 GET: [
                         MessageHandler(
                             Filters.text & ~(Filters.command | Filters.regex('^Done$')), 
                             get,
-                        )
+                        ),
+                        CallbackQueryHandler(start_over, pattern='^' + str(CMAIN) + '$'),
+                        #CallbackQueryHandler(themes_buttons, pattern='^' + str(CGETBUTTON) + '$'),
+                        #CallbackQueryHandler(self_, pattern='^' + str(CSELF) + '$'),
+                        CallbackQueryHandler(show_tops),
                     ],
-                EXIT: [
+                TYPE: [
+                        CallbackQueryHandler(pre_get_popular, pattern='^' + str(CPOPULAR) + '$'),
+                        CallbackQueryHandler(pre_get_your, pattern='^' + str(CYOUR) + '$'),
                     ],
                 },
             fallbacks=[CommandHandler("start", start)],
