@@ -86,7 +86,7 @@ def start_over(update: Update, context: CallbackContext) -> int:
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text("Hi, choose one.", reply_markup=reply_markup)
 
-    return MAIN
+    return TYPE
 
 
 def get(update: Update, context: CallbackContext) -> int:
